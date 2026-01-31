@@ -203,17 +203,44 @@ function createCard(record, owner=false){
     publish.addEventListener('click', async ()=>{
       if(!record.blob){ alert('No local blob to publish'); return; }
       try{
-        const fd = new FormData();
         const fileName = record.name || 'upload.mp4';
-        fd.append('movie', record.blob, fileName);
-        const res = await fetch('/api/upload', { method: 'POST', body: fd });
-        if(res.status === 401 || res.status === 403 || res.redirected){
+        const contentType = record.blob.type || 'application/octet-stream';
+
+        // Request a presigned upload URL (R2/S3) from server
+        const presignRes = await fetchWithDiagnostics('/api/presign', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ filename: fileName, contentType }) });
+        if(presignRes && (presignRes.status === 401 || presignRes.status === 403 || presignRes.redirected)){
           if(confirm('Server requires owner login to publish. Open server owner login page?')) window.open('/owner/login.html','_blank');
           return;
         }
-        if(!res.ok) throw new Error('Upload failed: ' + res.status);
-        const data = await res.json();
-        record.url = data.url; record.name = data.name || record.name; await putToDB(record);
+
+        // If presign not available (disk-fallback), fall back to original upload endpoint
+        if(!presignRes || !presignRes.ok){
+          const fd = new FormData();
+          fd.append('movie', record.blob, fileName);
+          const res = await fetchWithDiagnostics('/api/upload', { method: 'POST', body: fd });
+          if(!res || !res.ok) throw new Error('Upload failed: ' + (res ? res.status : 'network'));
+          const data = await res.json();
+          record.url = data.url; record.name = data.name || record.name; record.server = true;
+          await putToDB(record);
+          publish.textContent = 'Published'; publish.disabled = true;
+          showToast('Published to server');
+          renderGallery();
+          return;
+        }
+
+        const presignData = await presignRes.json();
+        const { uploadUrl, publicUrl, key } = presignData;
+
+        // Upload directly to storage using PUT
+        const putRes = await fetchWithDiagnostics(uploadUrl, { method: 'PUT', headers: { 'Content-Type': contentType }, body: record.blob });
+        if(!putRes || !(putRes.status >= 200 && putRes.status < 300)) throw new Error('Upload to storage failed: ' + (putRes ? putRes.status : 'network'));
+
+        // Register uploaded object in server DB
+        const regRes = await fetchWithDiagnostics('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ key, name: fileName, url: publicUrl }) });
+        if(!regRes || !regRes.ok) throw new Error('Register failed');
+
+        record.url = publicUrl; record.name = fileName; record.server = true;
+        await putToDB(record);
         publish.textContent = 'Published'; publish.disabled = true;
         showToast('Published to server');
         renderGallery();
@@ -226,8 +253,8 @@ function createCard(record, owner=false){
       try{
         if(record.server || (record.url && record.url.startsWith('/uploads/'))){
           const name = decodeURIComponent((record.url||'').split('/').pop());
-          const res = await fetch('/api/movies/' + encodeURIComponent(name), { method: 'DELETE' });
-          if(!res.ok) throw new Error('Server delete failed');
+          const res = await fetchWithDiagnostics('/api/movies/' + encodeURIComponent(name), { method: 'DELETE' });
+          if(!res || !res.ok) throw new Error('Server delete failed');
           showToast('Server file deleted');
         }
       }catch(e){ console.warn('Server delete failed', e); }
@@ -447,8 +474,8 @@ async function downloadRecord(record, video){
     if(record && record.url){
       // Try to fetch first (CORS may block). If fetch fails, fallback to opening the URL.
       try{
-        const res = await fetch(record.url, { mode: 'cors' });
-        if(!res.ok) throw new Error('Fetch failed: ' + res.status);
+        const res = await fetchWithDiagnostics(record.url, { mode: 'cors' });
+        if(!res || !res.ok) throw new Error('Fetch failed: ' + (res ? res.status : 'network'));
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const name = record.name || (new URL(record.url)).pathname.split('/').pop() || 'video';
@@ -687,8 +714,8 @@ async function renderGallery(){
   all.forEach(r => createCard(r, isOwner));
   // Fetch public movies from server and render them as read-only entries
   try{
-    const res = await fetch('/api/movies');
-    if(res.ok){
+    const res = await fetchWithDiagnostics('/api/movies');
+    if(res && res.ok){
       const list = await res.json();
       list.forEach(m => {
         // Avoid duplicates: if we already have a local record with same URL, skip
@@ -708,6 +735,58 @@ async function renderGallery(){
   // Check clipboard on load (best-effort). This may be blocked without permissions.
   checkClipboardOnLoad().catch(()=>{});
 })();
+
+// --- Diagnostics: fetch wrapper + UI ---
+const diagPanel = (function(){
+  const el = document.createElement('div'); el.className = 'diagnostics';
+  el.innerHTML = `<div class="row"><strong>Diagnostics</strong><button class="close">Close</button></div><div class="meta">No issues yet</div><pre class="body"></pre>`;
+  document.body.appendChild(el);
+  el.querySelector('.close').addEventListener('click', ()=> el.style.display = 'none');
+  return el;
+})();
+
+function showDiagnostics(info){
+  try{
+    const meta = diagPanel.querySelector('.meta');
+    const body = diagPanel.querySelector('.body');
+    meta.textContent = `${info.method || 'GET'} ${info.url} — ${info.status || 'ERROR'}`;
+    let details = '';
+    if(info.statusText) details += `StatusText: ${info.statusText}\n`;
+    if(info.status) details += `Status: ${info.status}\n`;
+    if(info.headers) details += `Headers:\n${info.headers}\n`;
+    if(info.body) details += `Body:\n${info.body}\n`;
+    details += `\nTime: ${new Date().toLocaleString()}`;
+    body.textContent = details;
+    diagPanel.style.display = 'block';
+  }catch(e){ console.error('showDiagnostics failed', e); }
+}
+
+async function fetchWithDiagnostics(url, opts){
+  const info = { url, method: opts && opts.method ? opts.method : 'GET' };
+  try{
+    const res = await fetch(url, opts);
+    info.status = res.status; info.statusText = res.statusText;
+    // headers summary
+    try{ info.headers = Array.from(res.headers.entries()).slice(0,10).map(h=>h.join(': ')).join('\n'); }catch(e){}
+    if(!res.ok){
+      // try to read body text
+      let t = '';
+      try{ t = await res.text(); info.body = t; }catch(e){ info.body = '<unreadable>'; }
+      showDiagnostics(info);
+      return res; // caller can still read
+    }
+    return res;
+  }catch(err){
+    info.status = 'NETWORK_ERROR'; info.statusText = err.message; info.body = (err && err.stack) ? err.stack : String(err);
+    showDiagnostics(info);
+    throw err;
+  }
+}
+
+// Wire diagnostics button
+const openDiagBtn = document.getElementById('open-diagnostics');
+if(openDiagBtn){ openDiagBtn.addEventListener('click', ()=> { diagPanel.style.display = diagPanel.style.display === 'block' ? 'none' : 'block'; }); }
+
 
 // Wire owner buttons
 setOwnerBtn.addEventListener('click', setOwnerPassword);

@@ -46,6 +46,14 @@ footer{padding:12px 20px;text-align:center;color:#555}
 .toast{position:fixed;right:16px;bottom:16px;background:rgba(0,0,0,0.8);color:#fff;padding:8px 12px;border-radius:6px;opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;z-index:9999}
 .toast.visible{opacity:1;transform:translateY(0)}
 
+/* Diagnostics panel (bottom-left) */
+.diagnostics{position:fixed;left:16px;bottom:16px;width:380px;max-height:60vh;background:#fff;border:1px solid #e6e6e6;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.08);overflow:auto;z-index:10001;padding:10px;display:none}
+.diagnostics h4{margin:0 0 8px 0;font-size:14px}
+.diagnostics pre{background:#f6f7fb;padding:8px;border-radius:6px;font-size:12px;overflow:auto;white-space:pre-wrap}
+.diagnostics .row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.diagnostics .meta{font-size:12px;color:#666}
+.diagnostics .close{margin-left:auto}
+
 /* Clipboard prompt (top-right) */
 .clipboard-prompt{position:fixed;right:16px;top:16px;background:#fff;border:1px solid #e6e6e6;padding:10px;border-radius:8px;box-shadow:0 6px 20px rgba(10,10,10,0.08);z-index:10000;max-width:320px}
 .clipboard-prompt .url{font-size:13px;color:#0b74de;word-break:break-all;margin-bottom:8px}
