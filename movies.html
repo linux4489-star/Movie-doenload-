@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Movies</title>
+  <style>body{font-family:sans-serif;padding:2rem} ul{list-style:none;padding:0}</style>
+</head>
+<body>
+  <h1>Available Movies</h1>
+  <p><a href="/owner/login.html">Owner login</a></p>
+  <ul id="movies"></ul>
+  <script src="/script.js"></script>
+  <script>
+    async function load(){
+      const list = document.getElementById('movies');
+      const res = await fetch('/api/movies');
+      const movies = await res.json();
+      list.innerHTML = '';
+      if (!movies.length) list.innerHTML = '<li>No movies uploaded yet.</li>';
+      movies.forEach(m => {
+        const li = document.createElement('li');
+        li.innerHTML = `<a href="/watch.html?file=${encodeURIComponent(m.name)}">${m.name}</a>`;
+        list.appendChild(li);
+      });
+    }
+    load();
+  </script>
+</body>
+</html>

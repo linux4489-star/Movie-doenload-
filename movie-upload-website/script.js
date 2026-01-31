@@ -198,8 +198,40 @@ function createCard(record, owner=false){
       }
     });
 
+    const publish = document.createElement('button'); publish.textContent = record.url ? 'Published' : 'Publish';
+    publish.disabled = !!record.url;
+    publish.addEventListener('click', async ()=>{
+      if(!record.blob){ alert('No local blob to publish'); return; }
+      try{
+        const fd = new FormData();
+        const fileName = record.name || 'upload.mp4';
+        fd.append('movie', record.blob, fileName);
+        const res = await fetch('/api/upload', { method: 'POST', body: fd });
+        if(res.status === 401 || res.status === 403 || res.redirected){
+          if(confirm('Server requires owner login to publish. Open server owner login page?')) window.open('/owner/login.html','_blank');
+          return;
+        }
+        if(!res.ok) throw new Error('Upload failed: ' + res.status);
+        const data = await res.json();
+        record.url = data.url; record.name = data.name || record.name; await putToDB(record);
+        publish.textContent = 'Published'; publish.disabled = true;
+        showToast('Published to server');
+        renderGallery();
+      }catch(err){ console.error('Publish failed', err); alert('Publish failed: '+ (err.message || 'error')); }
+    });
+
     const del = document.createElement('button'); del.textContent = 'Delete';
     del.addEventListener('click', async ()=>{
+      // If this is a server-hosted movie, call API to delete
+      try{
+        if(record.server || (record.url && record.url.startsWith('/uploads/'))){
+          const name = decodeURIComponent((record.url||'').split('/').pop());
+          const res = await fetch('/api/movies/' + encodeURIComponent(name), { method: 'DELETE' });
+          if(!res.ok) throw new Error('Server delete failed');
+          showToast('Server file deleted');
+        }
+      }catch(e){ console.warn('Server delete failed', e); }
+
       // revoke blob URL if used by this element
       try{ if(video._objectUrl) URL.revokeObjectURL(video._objectUrl); }catch(e){}
       if(record.id) await deleteFromDB(record.id);
@@ -207,7 +239,7 @@ function createCard(record, owner=false){
       renderGallery();
     });
 
-    actions.appendChild(dl); actions.appendChild(del);
+    actions.appendChild(dl); actions.appendChild(publish); actions.appendChild(del);
     card.appendChild(actions);
   }
 
@@ -651,7 +683,20 @@ async function renderGallery(){
   gallery.innerHTML = '';
   const items = await getAllFromDB();
   const all = items.concat(inMemory);
+  // Render local items
   all.forEach(r => createCard(r, isOwner));
+  // Fetch public movies from server and render them as read-only entries
+  try{
+    const res = await fetch('/api/movies');
+    if(res.ok){
+      const list = await res.json();
+      list.forEach(m => {
+        // Avoid duplicates: if we already have a local record with same URL, skip
+        const exists = all.find(a => a.url && a.url === m.url);
+        if(!exists){ createCard({ name: m.name, url: m.url, createdAt: 0, server: true }, isOwner); }
+      });
+    }
+  }catch(e){ console.warn('Failed to fetch public movies', e); }
 }
 
 // Load existing and restore owner session
