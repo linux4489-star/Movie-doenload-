@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Watch Movie</title>
+  <style>body{font-family:sans-serif;padding:2rem} video{max-width:100%}</style>
+</head>
+<body>
+  <h1 id="title">Watch</h1>
+  <video id="player" controls></video>
+  <p><a href="/movies.html">Back to movies</a></p>
+  <script>
+    function getQuery(){
+      const q = new URLSearchParams(location.search);
+      return q.get('file');
+    }
+    const file = getQuery();
+    if (!file) document.getElementById('title').innerText = 'No file specified';
+    else {
+      document.getElementById('title').innerText = decodeURIComponent(file);
+      const player = document.getElementById('player');
+      player.src = '/uploads/' + encodeURIComponent(file);
+      player.load();
+      player.play().catch(()=>{});
+    }
+  </script>
+</body>
+</html>
