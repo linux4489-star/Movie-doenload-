@@ -1,0 +1,61 @@
+*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;line-height:1.4;margin:0;background:#f7f9fc;color:#111}
+header{background:#0b74de;color:#fff;padding:18px 20px}
+header h1{margin:0;font-size:20px}
+.note{opacity:.9;margin-top:6px}
+main{padding:20px;max-width:1100px;margin:0 auto}
+.uploader{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.drop-zone{flex:1;min-height:120px;border:2px dashed #cfe3ff;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff}
+.drop-zone.dragover{border-color:#0b74de;background:#eaf4ff}
+.drop-zone p{margin:0;padding:12px;text-align:center}
+.controls{display:flex;gap:12px;align-items:center}
+.controls button,input{padding:8px 10px;border-radius:6px;border:1px solid #dcdcdc;background:#fff}
+.url-add{display:flex;gap:8px;align-items:center}
+
+.owner-banner{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.owner-banner .mode{font-weight:600}
+.owner-actions{display:flex;gap:8px}
+.owner-actions button{padding:6px 8px;font-size:13px}
+.owner-controls{display:block}
+.owner-controls.hidden{display:none}
+.hidden{display:none!important}
+.mode-owner{color:#fff;background:#0a7bd6;padding:6px 8px;border-radius:6px}
+.mode-guest{color:#333;background:#e6eefc;padding:6px 8px;border-radius:6px}
+
+/* options */
+.options{margin-top:8px}
+.options label{font-size:13px;color:#333}
+.options input{margin-right:8px}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:18px}
+.card{background:#fff;border-radius:8px;padding:10px;border:1px solid #e6e6e6;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden}
+.thumb{width:100%;height:160px;object-fit:cover;background:#111}
+.card .meta{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card .meta .name{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .actions{display:flex;gap:8px}
+.actions button{flex:1}
+
+/* Player controls */
+.player-tools{display:flex;gap:8px;align-items:center;margin-top:6px}
+.player-tools button, .player-tools select{padding:6px 8px;border-radius:6px;border:1px solid #dcdcdc;background:#fff;font-size:13px}
+.player-res{margin-left:auto;font-size:12px;color:#666}
+.player-tools .small{padding:4px 6px;font-size:12px}
+small{color:#666}
+footer{padding:12px 20px;text-align:center;color:#555}
+
+/* Toast notification */
+.toast{position:fixed;right:16px;bottom:16px;background:rgba(0,0,0,0.8);color:#fff;padding:8px 12px;border-radius:6px;opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;z-index:9999}
+.toast.visible{opacity:1;transform:translateY(0)}
+
+/* Clipboard prompt (top-right) */
+.clipboard-prompt{position:fixed;right:16px;top:16px;background:#fff;border:1px solid #e6e6e6;padding:10px;border-radius:8px;box-shadow:0 6px 20px rgba(10,10,10,0.08);z-index:10000;max-width:320px}
+.clipboard-prompt .url{font-size:13px;color:#0b74de;word-break:break-all;margin-bottom:8px}
+.clipboard-prompt .actions{display:flex;gap:8px}
+.clipboard-prompt button{padding:6px 8px;border-radius:6px;border:1px solid #dcdcdc;background:#fff}
+
+@media (max-width:520px){.thumb{height:120px}}
+
+/* Card error overlay */
+.card-error{position:absolute;left:10px;right:10px;top:10px;bottom:10px;background:rgba(0,0,0,0.7);color:#fff;display:flex;flex-direction:column;align-items:flex-start;padding:12px;border-radius:8px;gap:8px;justify-content:center}
+.card-error-inner{font-size:14px}
+.card-error-actions{display:flex;gap:8px}
+.card-error button{padding:6px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.06);color:#fff}
