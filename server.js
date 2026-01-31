@@ -1,12 +1,15 @@
-require('dotenv').config();
+try { require('dotenv').config(); } catch(e) { console.warn('dotenv not installed; skipping .env load'); }
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+const crypto = require('crypto');
 const PORT = process.env.PORT || 4000;
 const OWNER_PASS = process.env.OWNER_PASS || 'ownerpass';
+// Backwards-compatible owner hash (serverless functions expect OWNER_HASH env var)
+if(!process.env.OWNER_HASH) process.env.OWNER_HASH = crypto.createHash('sha256').update(OWNER_PASS).digest('hex');
 const UPLOAD_DIR = path.join(__dirname, 'upload');
 
 if (!fs.existsSync(UPLOAD_DIR)) {

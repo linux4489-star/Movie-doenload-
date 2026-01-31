@@ -207,9 +207,10 @@ function createCard(record, owner=false){
         const contentType = record.blob.type || 'application/octet-stream';
 
         // Request a presigned upload URL (R2/S3) from server
-        const presignRes = await fetchWithDiagnostics('/api/presign', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ filename: fileName, contentType }) });
+        const ownerHash = localStorage.getItem(OWNER_HASH_KEY) || '';
+        const presignRes = await fetchWithDiagnostics('/api/presign', { method: 'POST', headers: {'Content-Type':'application/json', 'x-owner-hash': ownerHash}, body: JSON.stringify({ filename: fileName, contentType }) });
         if(presignRes && (presignRes.status === 401 || presignRes.status === 403 || presignRes.redirected)){
-          if(confirm('Server requires owner login to publish. Open server owner login page?')) window.open('/owner/login.html','_blank');
+          if(confirm('Server requires owner authentication (owner hash mismatch). Open deployment docs?')) window.open('/DEPLOY_VERCEL.md','_blank');
           return;
         }
 
@@ -236,7 +237,8 @@ function createCard(record, owner=false){
         if(!putRes || !(putRes.status >= 200 && putRes.status < 300)) throw new Error('Upload to storage failed: ' + (putRes ? putRes.status : 'network'));
 
         // Register uploaded object in server DB
-        const regRes = await fetchWithDiagnostics('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ key, name: fileName, url: publicUrl }) });
+        const ownerHash2 = localStorage.getItem(OWNER_HASH_KEY) || '';
+        const regRes = await fetchWithDiagnostics('/api/register', { method: 'POST', headers: {'Content-Type':'application/json', 'x-owner-hash': ownerHash2}, body: JSON.stringify({ key, name: fileName, url: publicUrl }) });
         if(!regRes || !regRes.ok) throw new Error('Register failed');
 
         record.url = publicUrl; record.name = fileName; record.server = true;
@@ -253,7 +255,8 @@ function createCard(record, owner=false){
       try{
         if(record.server || (record.url && record.url.startsWith('/uploads/'))){
           const name = decodeURIComponent((record.url||'').split('/').pop());
-          const res = await fetchWithDiagnostics('/api/movies/' + encodeURIComponent(name), { method: 'DELETE' });
+          const ownerHash3 = localStorage.getItem(OWNER_HASH_KEY) || '';
+          const res = await fetchWithDiagnostics('/api/movies/' + encodeURIComponent(name), { method: 'DELETE', headers: { 'x-owner-hash': ownerHash3 } });
           if(!res || !res.ok) throw new Error('Server delete failed');
           showToast('Server file deleted');
         }
